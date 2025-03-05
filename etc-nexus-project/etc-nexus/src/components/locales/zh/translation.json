@@ -1,0 +1,103 @@
+{
+  
+  "headerTitle": "ETC Nexus中文",
+  "tagline": "AI增强的以太坊经典基础设施枢纽",
+  "connectWallet": "连接钱包",
+  "toggleTheme": "切换深色/浅色模式",
+
+  
+  "title": "欢迎使用ETC仪表板",
+  "price": "ETC价格",
+  "hashrate": "算力",
+  "nodeCount": "节点数",
+  "tvl": "锁定总价值",
+  "networkStatus": "网络状态",
+  "defi": "探索ETC DeFi",
+  "projects": "探索ETC项目",
+  "nodes": "探索ETC节点",
+  "links": "探索ETC链接",
+
+  
+  "placeholder": "占位符",
+  "usd": "美元",
+  "activeNodes": "活跃节点",
+  "communityChat": "社区聊天",
+  "profileSettings": "个人资料设置",
+  "walletAddress": "钱包地址",
+  "notConnected": "未连接",
+  "welcomeBack": "欢迎回来",
+  "username": "用户名",
+  "pickName": "选择一个显示名称",
+  "save": "保存",
+  "joinChat": "加入聊天",
+  "connectWalletFirst": "请先连接您的钱包！",
+  "enterUsernameFirst": "请先输入用户名！",
+  "usernameSaved": "用户名已保存",
+  "forAddress": "对应地址",
+  "errorSavingUsername": "保存用户名时出错；请查看控制台。",
+  "selectFileFirst": "请先选择文件。",
+  "picUpdated": "头像上传成功！",
+  "uploadCompletedNoFlag": "上传完成，但未返回成功标志。",
+  "errorUploadingPic": "上传头像时出错。请检查控制台。",
+
+  
+  "totalValueLocked": "锁定总价值",
+  "operational": "运行正常",
+  "good": "良好",
+  "degraded": "网络状态退化",
+  "networkHashrate": "网络算力",
+
+  
+  "cryptoCharts": "加密图表",
+  "tradingView": "TradingView",
+  "dex": "Dex",
+  "selectPair": "选择交易对：",
+  "getAnalysis": "获取分析",
+  "binancePairAnalysis": "Binance交易对分析",
+  "generatingTvAnalysis": "正在生成TradingView分析...",
+  "selectEtcPair": "选择ETC交易对：",
+  "getPairInfo": "获取交易对信息",
+  "pairInfo": "交易对信息",
+  "priceUsd": "价格 (美元)：",
+  "volume24h": "24小时交易量：",
+  "liquidityUsd": "流动性 (美元)：",
+  "fdv": "FDV：",
+  "dexGptAnalysis": "Dex GPT分析",
+  "generatingDexAnalysis": "正在生成GPT Dex分析...",
+  "loadingPairInfo": "正在加载交易对信息...",
+  "failedDexAnalysis": "Dex分析失败",
+  "failedFetchDexPair": "获取Dex交易对信息失败",
+  "base": "基础币：",
+  "quote": "报价币：",
+
+  
+  "communityChatHeading": "ETC 社区聊天",
+  "noWalletAddressConnected": "未连接钱包地址。",
+  "noUsernameProvided": "未提供用户名。",
+  "minimize": "最小化",
+  "enlarge": "放大",
+  "typeYourMessage": "输入您的消息...",
+  "send": "发送",
+  "uploadChatImage": "上传聊天图片",
+  "uploading": "正在上传...",
+  "imageUploadedSuccessfully": "图片上传成功！",
+  "selectedGifPreview": "已选择的GIF预览：",
+  "pickAGif": "选择一个GIF",
+  "searchTenorPlaceholder": "搜索Tenor...",
+  "go": "搜索",
+  "loading": "正在加载...",
+  "noGifsFoundOrError": "未找到GIF或出现错误。请检查控制台日志。",
+
+  
+  "etcBlog": "ETC 博客",
+  "closeBlog": "关闭博客",
+  "marketAnalysis": "市场分析",
+  "generalETC": "通用ETC",
+  "communityBuzz": "社区动态",
+  "noPostsYetForCategory": "此分类下暂时没有帖子：{{cat}}。请稍后再来！"
+}
+
+
+
+
+

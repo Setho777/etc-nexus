@@ -1,0 +1,102 @@
+{
+  
+  "headerTitle": "ETC Nexus",
+  "tagline": "The AI Enhanced Ethereum Classic Infrastructure Hub",
+  "connectWallet": "Connect Wallet",
+  "toggleTheme": "Toggle Dark/Light Mode",
+
+  
+  "title": "Welcome to ETC Dashboard",
+  "price": "ETC Price",
+  "hashrate": "Hashrate",
+  "nodeCount": "Node Count",
+  "tvl": "TVL",
+  "networkStatus": "Network Status",
+  "defi": "Explore ETC Defi",
+  "projects": "Explore ETC Projects",
+  "nodes": "Explore ETC Nodes",
+  "links": "Explore ETC Links",
+
+  
+  "placeholder": "Placeholder",
+  "usd": "USD",
+  "activeNodes": "Active Nodes",
+  "communityChat": "Community Chat",
+  "profileSettings": "Profile Settings",
+  "walletAddress": "Wallet Address",
+  "notConnected": "Not connected",
+  "welcomeBack": "Welcome back",
+  "username": "Username",
+  "pickName": "Pick a display name",
+  "save": "Save",
+  "joinChat": "Join Chat",
+  "connectWalletFirst": "Connect your wallet first!",
+  "enterUsernameFirst": "Enter a username first!",
+  "usernameSaved": "Username saved",
+  "forAddress": "for address",
+  "errorSavingUsername": "Error saving username; check console.",
+  "selectFileFirst": "Please select a file first.",
+  "picUpdated": "Profile pic updated successfully!",
+  "uploadCompletedNoFlag": "Upload completed, but no success flag returned.",
+  "errorUploadingPic": "Error uploading profile pic. Check console.",
+
+  
+  "totalValueLocked": "Total Value Locked",
+  "operational": "Operational",
+  "good": "Good",
+  "degraded": "Degraded",
+  "networkHashrate": "Network Hashrate",
+
+  
+  "cryptoCharts": "Crypto Charts",
+  "tradingView": "TradingView",
+  "dex": "Dex",
+  "selectPair": "Select Pair:",
+  "getAnalysis": "Get Analysis",
+  "binancePairAnalysis": "Binance Pair Analysis",
+  "generatingTvAnalysis": "Generating TradingView analysis...",
+  "selectEtcPair": "Select ETC Pair:",
+  "getPairInfo": "Get Pair Info",
+  "pairInfo": "Pair Info",
+  "priceUsd": "Price (USD):",
+  "volume24h": "24h Volume:",
+  "liquidityUsd": "Liquidity (USD):",
+  "fdv": "FDV:",
+  "dexGptAnalysis": "Dex GPT Analysis",
+  "generatingDexAnalysis": "Generating GPT Dex Analysis...",
+  "loadingPairInfo": "Loading pair info...",
+  "failedDexAnalysis": "Failed Dex analysis",
+  "failedFetchDexPair": "Failed to fetch Dex pair info",
+  "base": "Base:",
+  "quote": "Quote:",
+
+  
+  "communityChatHeading": "ETC Community Chat",
+  "noWalletAddressConnected": "No wallet address connected.",
+  "noUsernameProvided": "No username provided.",
+  "minimize": "Minimize",
+  "enlarge": "Enlarge",
+  "typeYourMessage": "Type your message...",
+  "send": "Send",
+  "uploadChatImage": "Upload Chat Image",
+  "uploading": "Uploading...",
+  "imageUploadedSuccessfully": "Image uploaded successfully!",
+  "selectedGifPreview": "Selected GIF preview:",
+  "pickAGif": "Pick a GIF",
+  "searchTenorPlaceholder": "Search Tenor...",
+  "go": "Go",
+  "loading": "Loading...",
+  "noGifsFoundOrError": "No GIFs found or error. Check console logs.",
+
+  
+  "etcBlog": "ETC Blog",
+  "closeBlog": "Close Blog",
+  "marketAnalysis": "Market Analysis",
+  "generalETC": "General ETC",
+  "communityBuzz": "Community Buzz",
+  "noPostsYetForCategory": "No posts yet for {{cat}}. Check back later!"
+}
+
+
+
+
