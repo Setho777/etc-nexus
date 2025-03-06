@@ -7,20 +7,11 @@ const axios = require('axios');
 const { Configuration, OpenAIApi } = require('openai');
 const cron = require('node-cron');
 const { ethers } = require('ethers');
-// 1) Import TwitterApi
 const { TwitterApi } = require('twitter-api-v2');
-
-// ---------------------------------------------------------------------
-// Single Express App
-// - Multi-Turn ETC Knowledge Bot (/api/chat)
-// - 3 daily AI posts (Market, General ETC, Community) w/ local JSON persistence
-// - Chart Analysis Endpoint (/api/chartAnalysis)
-// ---------------------------------------------------------------------
 
 const app = express();
 app.use(express.json());
 
-// Allowed frontend origins
 const allowedOrigins = [
   'http://localhost:5174',
   'https://etc-nexus-server-production.up.railway.app',
@@ -53,14 +44,11 @@ const twitterClient = new TwitterApi({
   accessSecret: process.env.X_ACCESS_SECRET,
 });
 
-// 2) A helper to tweet text + image:
 async function postToX(text) {
   try {
-    // 2A) Upload image via v1
-    const mediaId = await twitterClient.v1.uploadMedia('./BlogImage.png'); 
-    // 2B) Then tweet in v2, attaching the media
+    const mediaId = await twitterClient.v1.uploadMedia('./BlogImage.png');
     await twitterClient.v2.tweet({
-      text: text,
+      text,
       media: { media_ids: [mediaId] },
     });
     console.log('✅ Tweeted =>', text.slice(0, 60), '...');
@@ -70,7 +58,7 @@ async function postToX(text) {
 }
 
 // ---------------------------------------------------------------------
-// Optional Knowledge Base for Chat
+// Optional Knowledge Base
 // ---------------------------------------------------------------------
 const knowledgeBasePath = path.join(__dirname, 'knowledgeBase.txt');
 let knowledgeData = [];
@@ -106,12 +94,140 @@ async function embedKnowledgeBase() {
 }
 
 // ---------------------------------------------------------------------
+// /api/dexChart => geckoTerminal feed
+// ---------------------------------------------------------------------
+app.get('/api/dexChart', async (req, res) => {
+  const { pairAddress, denom } = req.query;
+  if (!pairAddress) {
+    return res.status(400).json({ error: 'Missing pairAddress query parameter.' });
+  }
+
+  try {
+    if (denom === 'usd') {
+      const usdUrl = `https://api.geckoterminal.com/api/v2/networks/ethereum_classic/pools/${pairAddress}/ohlcv/hour?quote=usd`;
+      const usdResp = await axios.get(usdUrl);
+
+      if (!usdResp.data?.data?.attributes) {
+        return res.status(404).json({ error: 'No USD data found' });
+      }
+
+      const usdList = usdResp.data.data.attributes.ohlcv_list || [];
+      if (usdList.length === 0) {
+        return res.status(404).json({ error: 'No USD candle data found' });
+      }
+
+      const usdCandles = [];
+      usdList.forEach((c, i) => {
+        const ms = c[0];
+        const openStr = c[1];
+        const highStr = c[2];
+        const lowStr = c[3];
+        const closeStr = c[4];
+        if (
+          ms == null ||
+          openStr == null ||
+          highStr == null ||
+          lowStr == null ||
+          closeStr == null
+        ) {
+          console.warn(`Skipping #${i} => missing field`, c);
+          return;
+        }
+
+        const timeNum = Math.floor(ms / 1000);
+        const openNum = parseFloat(openStr);
+        const highNum = parseFloat(highStr);
+        const lowNum = parseFloat(lowStr);
+        const closeNum = parseFloat(closeStr);
+
+        if (
+          isNaN(timeNum) ||
+          isNaN(openNum) ||
+          isNaN(highNum) ||
+          isNaN(lowNum) ||
+          isNaN(closeNum)
+        ) {
+          console.warn(`Skipping #${i} => parseFloat gave NaN`, c);
+          return;
+        }
+
+        usdCandles.push({
+          timestamp: timeNum,
+          open: openNum,
+          high: highNum,
+          low: lowNum,
+          close: closeNum,
+          volume: parseFloat(c[5]) || 0,
+        });
+      });
+
+      return res.json(usdCandles);
+    }
+
+    // Otherwise => ratio-based feed
+    const geckoUrl = `https://api.geckoterminal.com/api/v2/networks/ethereum_classic/pools/${pairAddress}/ohlcv/hour`;
+    const response = await axios.get(geckoUrl);
+    const ohlcvData = response.data.data.attributes.ohlcv_list || [];
+
+    const formattedCandles = [];
+    ohlcvData.forEach((c, i) => {
+      const ms = c[0];
+      const openStr = c[1];
+      const highStr = c[2];
+      const lowStr = c[3];
+      const closeStr = c[4];
+
+      if (
+        ms == null ||
+        openStr == null ||
+        highStr == null ||
+        lowStr == null ||
+        closeStr == null
+      ) {
+        console.warn(`Skipping candle #${i} => missing field`, c);
+        return;
+      }
+
+      const timeNum = Math.floor(ms / 1000);
+      const openNum = parseFloat(openStr);
+      const highNum = parseFloat(highStr);
+      const lowNum = parseFloat(lowStr);
+      const closeNum = parseFloat(closeStr);
+
+      if (
+        isNaN(timeNum) ||
+        isNaN(openNum) ||
+        isNaN(highNum) ||
+        isNaN(lowNum) ||
+        isNaN(closeNum)
+      ) {
+        console.warn(`Skipping candle #${i} => parseFloat gave NaN`, c);
+        return;
+      }
+
+      formattedCandles.push({
+        timestamp: timeNum,
+        open: openNum,
+        high: highNum,
+        low: lowNum,
+        close: closeNum,
+        volume: parseFloat(c[5]) || 0,
+      });
+    });
+
+    return res.json(formattedCandles);
+  } catch (err) {
+    console.error('❌ Error fetching Chart data:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch DEX chart data.' });
+  }
+});
+
+// ---------------------------------------------------------------------
 // PERSISTENCE => blogPosts.json
 // ---------------------------------------------------------------------
 const BLOG_POSTS_FILE = path.join(__dirname, 'blogPosts.json');
 let blogPosts = [];
 
-/** Load blog posts from disk at server start. */
 function loadBlogPosts() {
   if (fs.existsSync(BLOG_POSTS_FILE)) {
     try {
@@ -122,11 +238,10 @@ function loadBlogPosts() {
       console.error('❌ Could not parse blogPosts.json =>', err.message);
     }
   } else {
-    console.log(`⚠️ No existing ${BLOG_POSTS_FILE} found—starting with empty blogPosts.`);
+    console.log(`⚠️ No existing ${BLOG_POSTS_FILE} found—starting empty.`);
   }
 }
 
-/** Save the in-memory blogPosts array to disk. */
 function saveBlogPosts() {
   try {
     fs.writeFileSync(BLOG_POSTS_FILE, JSON.stringify(blogPosts, null, 2), 'utf8');
@@ -143,9 +258,9 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { conversationHistory } = req.body;
     if (!Array.isArray(conversationHistory)) {
-      return res
-        .status(400)
-        .json({ error: 'conversationHistory must be an array of {role, content}.' });
+      return res.status(400).json({
+        error: 'conversationHistory must be an array of {role, content}.'
+      });
     }
 
     const messages = [
@@ -177,31 +292,14 @@ app.post('/api/chat', async (req, res) => {
 // 3 daily posts => Market / General ETC / Community
 // ---------------------------------------------------------------------
 app.get('/api/blog', (req, res) => {
+  // sort descending so newest is first
+  blogPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   return res.json({ blogPosts });
 });
 
-// Cron => daily at 08:00 UTC => generate 3 main posts, then daily overview => tweet
-cron.schedule('0 8 * * *', async () => {
-  console.log('🔔 Cron triggered => generating daily posts...');
-  try {
-    const newPosts = await generateAllPosts();
-    newPosts.forEach((p) => blogPosts.unshift(p));
-    console.log('✅ 3 daily blog posts generated:', newPosts.map((x) => x.title).join(' | '));
-
-    // Then create a daily overview that references these 3 new posts
-    const overviewPost = await generateDailyOverviewPost(newPosts);
-    blogPosts.unshift(overviewPost);
-
-    // Save after generation
-    saveBlogPosts();
-
-    // Tweet the daily overview
-    await postToX(overviewPost.body);
-  } catch (err) {
-    console.error('❌ daily generation error =>', err.message);
-  }
-});
-
+// ---------------------------------------------------------------------
+// Helper to generate all daily posts
+// ---------------------------------------------------------------------
 async function generateAllPosts() {
   const categories = ['Market Analysis', 'General ETC', 'Community Buzz'];
   const results = [];
@@ -228,30 +326,25 @@ async function generateMarketAnalysisPost() {
     console.log('CoinGecko response => status:', cgRes.status, 'data:', cgRes.data);
 
     const etc = cgRes.data['ethereum-classic'];
-
-    // Validate fields
     if (
       !etc ||
       typeof etc.usd !== 'number' ||
       typeof etc.usd_24h_vol !== 'number' ||
       typeof etc.usd_24h_change !== 'number'
     ) {
-      throw new Error('CoinGecko response is missing some ETC price data.');
+      throw new Error('CoinGecko response missing some ETC price data.');
     }
 
     const price = etc.usd;
     const vol = etc.usd_24h_vol;
     const change = etc.usd_24h_change;
 
-    // Insert positivity line:
     const prompt = `
-      ETC price: $${price.toFixed(2)}, 
-      24h vol: ~$${Number(vol).toLocaleString()}, 
+      ETC price: $${price.toFixed(2)},
+      24h vol: ~$${Number(vol).toLocaleString()},
       24h change: ${change.toFixed(2)}%.
-      Write a 200-300 word analysis focusing on these stats. 
-      Maintain a friendly, positive, and uplifting tone for ETC community morale, 
-      even if data is slightly bearish. Keep it concise & easy to read, 
-      mention short-term trading factors.
+      Write a 200-300 word analysis focusing on these stats.
+      Maintain a friendly, positive, uplifting tone. Mention short-term trading factors.
     `;
     console.log('Market prompt =>', prompt.slice(0, 100), '...');
 
@@ -280,8 +373,7 @@ async function generateMarketAnalysisPost() {
       id: Date.now() + 1,
       category: 'Market Analysis',
       title: `ETC Market Analysis - ${new Date().toDateString()}`,
-      body: `Unable to fetch real ETC data from CoinGecko or parse it correctly. 
-      "ETC saw typical fluctuations. Check back soon for real stats."`,
+      body: `Unable to fetch real ETC data from CoinGecko. "ETC saw typical fluctuations..."`,
       createdAt: new Date().toISOString(),
     };
   }
@@ -294,7 +386,7 @@ async function generateGeneralEtcPost() {
     const msUrl = 'https://api.minerstat.com/v2/coins?list=ETC';
     console.log('Minerstat GET =>', msUrl);
     const msRes = await axios.get(msUrl);
-    console.log('Minerstat response => status:', msRes.status, 'data:', msRes.data);
+    console.log('Minerstat response => status:', msRes.status);
 
     const etcInfo = msRes.data.find((c) => c.coin === 'ETC');
     if (!etcInfo) throw new Error('No ETC data in minerstat');
@@ -305,7 +397,6 @@ async function generateGeneralEtcPost() {
     const rpc = 'https://etc.rivet.link';
     console.log('Ethers => connecting to', rpc);
     const provider = new ethers.JsonRpcProvider(rpc);
-
     const blockNumber = await provider.getBlockNumber();
     console.log('Ethers => latest block =>', blockNumber);
 
@@ -321,12 +412,11 @@ async function generateGeneralEtcPost() {
 
     const prompt = `
       Ethereum Classic chain stats:
-      - Minerstat => network hashrate: ~${netHashTH} TH/s, difficulty: ${diffMSDisplay}
-      - Ethers => latest block: #${blockNumber}, block difficulty: ${blockDiff}
+      - Minerstat => ~${netHashTH} TH/s, difficulty: ${diffMSDisplay}
+      - Ethers => latest block #${blockNumber}, block diff: ${blockDiff}
 
-      Write a 200-300 word "General ETC" update summarizing these real stats. 
-      Maintain an upbeat, encouraging tone for the ETC community, highlighting 
-      any positive angles or progress. Keep it concise & easy to read.
+      Write a 200-300 word "General ETC" update summarizing these real stats.
+      Maintain an upbeat, encouraging tone. Keep it concise & easy to read.
     `;
     console.log('General ETC prompt =>', prompt.slice(0, 100), '...');
 
@@ -352,9 +442,9 @@ async function generateGeneralEtcPost() {
   } catch (err) {
     console.error('🚨 General ETC chain stats error =>', err.message);
     const fallbackPrompt = `
-      Could not fetch ETC chain stats from minerstat or ethers. 
+      Could not fetch ETC chain stats from minerstat or ethers.
       Write a short 200-300 word "General ETC" update disclaiming no real data,
-      but maintain a positive, uplifting tone.
+      but keep a positive tone.
     `;
     const fallback = await openai.createChatCompletion({
       model: 'gpt-4',
@@ -372,14 +462,12 @@ async function generateGeneralEtcPost() {
   }
 }
 
-// 3) Community Buzz => narrower search, expansions for username
+// 3) Community Buzz => from Twitter (X)
 async function generateCommunityBuzzPost() {
   console.log('🔎 Community Buzz => fetching tweets from X...');
   try {
     const bearer = process.env.X_BEARER_TOKEN;
-    if (!bearer) {
-      throw new Error('No X_BEARER_TOKEN in .env');
-    }
+    if (!bearer) throw new Error('No X_BEARER_TOKEN in .env');
 
     const rawQuery = '#etcarmy -is:retweet lang:en';
     const encodedQuery = encodeURIComponent(rawQuery);
@@ -392,7 +480,7 @@ async function generateCommunityBuzzPost() {
     const resp = await axios.get(url, {
       headers: { Authorization: `Bearer ${bearer}` },
     });
-    console.log('X response => status:', resp.status, 'data:', resp.data);
+    console.log('X response => status:', resp.status);
 
     let tweets = resp.data.data || [];
     console.log('Raw tweets =>', JSON.stringify(tweets, null, 2));
@@ -405,22 +493,19 @@ async function generateCommunityBuzzPost() {
     });
 
     if (tweets.length === 0) {
-      throw new Error('No relevant ETC tweets found after final filter');
+      throw new Error('No relevant ETC tweets found');
     }
 
     let tweetSummary = '';
     tweets.forEach((tw, i) => {
-      // Insert the handle if found
       const authorName = userMap[tw.author_id] || 'UnknownUser';
       tweetSummary += `Tweet #${i + 1} (by @${authorName}): ${tw.text}\n\n`;
     });
 
     const prompt = `
-      Below are up to ${maxResults} recent tweets referencing #etcarmy. 
-      Summarize them in ~200-300 words as a "Community Buzz" post, with a positive spin. 
-      Focus on real ETC sentiment/discussions, highlighting encouraging or optimistic aspects 
-      for the community.
-
+      Below are up to ${maxResults} recent tweets referencing #etcarmy.
+      Summarize them in ~200-300 words as a "Community Buzz" post, positive spin.
+      Focus on real ETC sentiment, highlight optimism.
       ${tweetSummary}
     `;
     console.log('Community Buzz prompt =>', prompt.slice(0, 100), '...');
@@ -450,9 +535,9 @@ async function generateCommunityBuzzPost() {
       console.log('X error body =>', err.response.data);
     }
     const fallbackPrompt = `
-      We couldn't fetch real ETC tweets or got rate-limited. 
-      Write a 200-300 word "Community Buzz" disclaiming no real data, 
-      but still maintain a positive, uplifting tone for the ETC community.
+      We couldn't fetch real ETC tweets or got rate-limited.
+      Write a 200-300 word "Community Buzz" disclaiming no real data,
+      but keep a positive, uplifting tone.
     `;
     const fallback = await openai.createChatCompletion({
       model: 'gpt-4',
@@ -470,7 +555,7 @@ async function generateCommunityBuzzPost() {
   }
 }
 
-// 4) Generate a single “Daily Overview” post that references the 3 new posts
+// 4) Generate single “Daily Overview” referencing the 3 new posts
 async function generateDailyOverviewPost(newPosts) {
   try {
     let snippet = '';
@@ -482,13 +567,12 @@ async function generateDailyOverviewPost(newPosts) {
     });
 
     const prompt = `
-      Create a short ETC Daily Overview (~200-250 words) referencing the 3 newly created blog posts:
+      Create a short ETC Daily Overview (~200-250 words) referencing these 3 new posts:
       ${snippet}
 
-      Summarize the key points from each, mention ETC in a cohesive way, 
-      and maintain an optimistic, uplifting tone to encourage the ETC community. 
-      **Please include the hashtags #ETC, #ETCArmy, and #EthereumClassic in the text** 
-      to boost community engagement. Wrap it up with a friendly conclusion.
+      Summarize key points, mention ETC cohesively,
+      maintain an uplifting tone. 
+      Include #ETC, #ETCArmy, #EthereumClassic. Friendly conclusion.
     `;
 
     const gptRes = await openai.createChatCompletion({
@@ -518,15 +602,43 @@ async function generateDailyOverviewPost(newPosts) {
 }
 
 // ---------------------------------------------------------------------
-// NEW ENDPOINT: /api/chartAnalysis
+// CRON => generate daily posts at 08:00
+// ---------------------------------------------------------------------
+cron.schedule('0 8 * * *', async () => {
+  console.log('🔔 Cron triggered => generating daily posts...');
+  try {
+    const newPosts = await generateAllPosts();
+    newPosts.forEach((p) => blogPosts.unshift(p));
+    console.log(
+      '✅ 3 daily blog posts generated:',
+      newPosts.map((x) => x.title).join(' | ')
+    );
+
+    // Then create a daily overview referencing these 3 new posts
+    const overviewPost = await generateDailyOverviewPost(newPosts);
+    blogPosts.unshift(overviewPost);
+
+    // << ADDED: Trim to keep the newest 4
+    blogPosts = blogPosts.slice(0, 4);
+
+    // Save
+    saveBlogPosts();
+
+    // Tweet daily overview
+    await postToX(overviewPost.body);
+  } catch (err) {
+    console.error('❌ daily generation error =>', err.message);
+  }
+});
+
+// ---------------------------------------------------------------------
+// /api/chartAnalysis => (Binance-based)
 // ---------------------------------------------------------------------
 app.post('/api/chartAnalysis', async (req, res) => {
   try {
     const { symbol } = req.body;
     if (!symbol) {
-      return res
-        .status(400)
-        .json({ error: 'Missing symbol in request body.' });
+      return res.status(400).json({ error: 'Missing symbol in request body.' });
     }
 
     let pair = '';
@@ -540,9 +652,7 @@ app.post('/api/chartAnalysis', async (req, res) => {
       });
     }
 
-    // Use Binance.US for klines
     const binanceUrl = `https://api.binance.us/api/v3/klines?symbol=${pair}&interval=1h&limit=24`;
-
     const klineRes = await axios.get(binanceUrl);
     const klines = klineRes.data;
 
@@ -550,10 +660,9 @@ app.post('/api/chartAnalysis', async (req, res) => {
       throw new Error(`No kline data returned for ${pair}`);
     }
 
-    let candleSummary = '';
-    let totalVolume = 0;
     let highestHigh = 0;
     let lowestLow = Number.MAX_VALUE;
+    let totalVolume = 0;
     let lastClose = 0;
 
     klines.forEach((c) => {
@@ -572,27 +681,27 @@ app.post('/api/chartAnalysis', async (req, res) => {
     const firstOpen = parseFloat(klines[0][1]);
     const dayChange = ((lastClose - firstOpen) / firstOpen) * 100;
 
-    candleSummary += `- 24-hour open price: ${firstOpen.toFixed(4)}\n`;
-    candleSummary += `- 24-hour highest high: ${highestHigh.toFixed(4)}\n`;
-    candleSummary += `- 24-hour lowest low: ${lowestLow.toFixed(4)}\n`;
-    candleSummary += `- Latest close price: ${lastClose.toFixed(4)}\n`;
-    candleSummary += `- Total volume (24h): ${totalVolume.toFixed(4)}\n`;
-    candleSummary += `- % Change over these 24 candles: ${dayChange.toFixed(2)}%\n`;
+    const summary = `
+- 24-hour open price: ${firstOpen.toFixed(4)}
+- 24-hour highest high: ${highestHigh.toFixed(4)}
+- 24-hour lowest low: ${lowestLow.toFixed(4)}
+- Latest close price: ${lastClose.toFixed(4)}
+- Total volume (24h): ${totalVolume.toFixed(4)}
+- % Change (24h): ${dayChange.toFixed(2)}%
+    `;
 
     const prompt = `
       You are an expert crypto trading analyst focusing on Ethereum Classic and related pairs on Binance.
-      The user is requesting an in-depth analysis of the following pair: ${pair}.
-      Over the last 24 hours (1h candles), we have these summary stats:
+      Pair: ${pair}
+      Over last 24h (1h candles), summary:
+      ${summary}
 
-      ${candleSummary}
-
-      Please provide a thorough yet concise technical analysis, discussing:
-      - Price trend over the 24h
+      Provide thorough but concise technical analysis:
+      - Price trend
       - Volume significance
-      - Potential support/resistance levels based on the high/low
-      - Any short-term trading factors or notable patterns
-
-      Keep it professional, around 150-250 words, and give actionable insights if possible.
+      - Potential support/resistance
+      - short-term factors/patterns
+      150-250 words, professional, actionable.
     `;
 
     const gptRes = await openai.createChatCompletion({
@@ -611,16 +720,145 @@ app.post('/api/chartAnalysis', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------
-// STARTUP => Load from blogPosts.json => embed knowledge base => listen => generate posts => save
+// /api/dexAnalysis => For custom tokens (CoinGecko / geckoTerminal).
+// ---------------------------------------------------------------------
+app.post('/api/dexAnalysis', async (req, res) => {
+  try {
+    const { pairAddress, tokenName } = req.body;
+    if (!pairAddress) {
+      return res.status(400).json({ error: 'Missing pairAddress in request body.' });
+    }
+
+    // 1) Get hour candles from geckoTerminal
+    const geckoUrl = `https://api.geckoterminal.com/api/v2/networks/ethereum_classic/pools/${pairAddress}/ohlcv/hour`;
+    const gtRes = await axios.get(geckoUrl);
+
+    if (!gtRes.data?.data?.attributes?.ohlcv_list) {
+      throw new Error('No geckoTerminal data for that address');
+    }
+    const ohlcvList = gtRes.data.data.attributes.ohlcv_list;
+
+    if (!Array.isArray(ohlcvList) || ohlcvList.length === 0) {
+      throw new Error('No candles returned from geckoTerminal');
+    }
+
+    // Sort ascending
+    const sorted = ohlcvList.slice().sort((a, b) => a[0] - b[0]);
+    // last 24
+    const last24 = sorted.slice(-24);
+
+    let highestHigh = 0;
+    let lowestLow = Number.MAX_VALUE;
+    let totalVolume = 0;
+    let firstOpen = 0;
+    let lastClose = 0;
+
+    last24.forEach((c, i) => {
+      const openNum = parseFloat(c[1]);
+      const highNum = parseFloat(c[2]);
+      const lowNum = parseFloat(c[3]);
+      const closeNum = parseFloat(c[4]);
+      const volNum = parseFloat(c[5]);
+
+      if (i === 0) firstOpen = openNum;
+      if (i === last24.length - 1) lastClose = closeNum;
+
+      if (highNum > highestHigh) highestHigh = highNum;
+      if (lowNum < lowestLow) lowestLow = lowNum;
+      totalVolume += volNum;
+    });
+
+    const dayChange = ((lastClose - firstOpen) / firstOpen) * 100;
+
+    const summary = `
+Token Name: ${tokenName || 'UnknownToken'}
+
+- 24-hour open: ${firstOpen.toFixed(6)}
+- 24-hour highest high: ${highestHigh.toFixed(6)}
+- 24-hour lowest low: ${lowestLow.toFixed(6)}
+- Latest close: ${lastClose.toFixed(6)}
+- Total volume (24h): ${totalVolume.toFixed(2)}
+- % Change (24h): ${dayChange.toFixed(2)}%
+    `;
+
+    const prompt = `
+You are an expert crypto trading analyst. The user has a custom token named "${tokenName}" (if known).
+Over the last 24 hours, we have:
+
+${summary}
+
+Please provide a ~150-250 word technical analysis:
+- Price trend
+- Volume significance
+- Support/resistance
+- short-term trading patterns
+Keep it professional, actionable, referencing the token name if given.
+    `;
+
+    const gptRes = await openai.createChatCompletion({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.85,
+      max_tokens: 700,
+    });
+
+    const analysis = gptRes.data.choices[0].message.content.trim();
+    return res.json({ analysis });
+  } catch (err) {
+    console.error('❌ /api/dexAnalysis error =>', err.message);
+    return res.status(500).json({ error: 'Failed to analyze token chart.' });
+  }
+});
+
+// ---------------------------------------------------------------------
+// << ADDED: Helper to check if a given date string is "today"
+// ---------------------------------------------------------------------
+function isToday(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return (
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear()
+  );
+}
+
+// ---------------------------------------------------------------------
+// STARTUP
 // ---------------------------------------------------------------------
 const PORT = process.env.PORT || 3000;
 
-embedKnowledgeBase().then(() => {
-  // 1) Load existing posts from JSON
+embedKnowledgeBase().then(async () => {
   loadBlogPosts();
 
-  // NEW DYNAMIC ENDPOINT: /api/dexPair
-  // The user provides ?pairAddress=0x...
+  // << ADDED: On startup, check if we already have a post for today.
+  const newestPost = blogPosts[0];
+  if (!newestPost || !isToday(newestPost.createdAt)) {
+    console.log('🔎 No existing post for today => generating now...');
+
+    try {
+      const newPosts = await generateAllPosts();
+      newPosts.forEach((p) => blogPosts.unshift(p));
+
+      const overviewPost = await generateDailyOverviewPost(newPosts);
+      blogPosts.unshift(overviewPost);
+
+      // Trim to keep the newest 4
+      blogPosts = blogPosts.slice(0, 4);
+
+      saveBlogPosts();
+
+      // Tweet the new daily overview
+      await postToX(overviewPost.body);
+    } catch (err) {
+      console.error('❌ Startup generation error =>', err.message);
+    }
+  } else {
+    console.log('✅ We already have a post for today—no new generation needed.');
+  }
+
+  // /api/dexPair => DexScreener pair info
   app.get('/api/dexPair', async (req, res) => {
     try {
       const { pairAddress } = req.query;
@@ -630,9 +868,8 @@ embedKnowledgeBase().then(() => {
 
       const baseUrl = 'https://api.dexscreener.com/latest/dex/pairs/ethereumclassic';
       const apiUrl = `${baseUrl}/${pairAddress}`;
-
       const dsRes = await axios.get(apiUrl);
-      if (!dsRes.data || !dsRes.data.pairs || dsRes.data.pairs.length === 0) {
+      if (!dsRes.data?.pairs?.length) {
         return res.status(404).json({ error: 'No data for that address' });
       }
 
@@ -647,57 +884,28 @@ embedKnowledgeBase().then(() => {
       const quoteName = pairData.quoteToken?.name || 'UnknownQuote';
       const quoteSymbol = pairData.quoteToken?.symbol || '???';
 
-      const response = {
+      return res.json({
         pairAddress,
-        baseToken: {
-          name: baseName,
-          symbol: baseSymbol,
-        },
-        quoteToken: {
-          name: quoteName,
-          symbol: quoteSymbol,
-        },
+        baseToken: { name: baseName, symbol: baseSymbol },
+        quoteToken: { name: quoteName, symbol: quoteSymbol },
         priceUsd,
         volume24,
         liquidityUsd,
         fdv,
-      };
-
-      return res.json(response);
+      });
     } catch (err) {
       console.error('Error fetching single Dex pair =>', err.message);
       return res.status(500).json({ error: 'Failed to fetch Dex pair' });
     }
   });
 
-  // 2) Start server
-  app.listen(PORT, async () => {
+  // Start server
+  app.listen(PORT, () => {
     console.log(`🚀 ETC Nexus server running on port ${PORT}`);
-
-    // 3) On startup => generate 3 posts => then daily overview => then tweet
-    console.log('🔎 Starting initial generateAllPosts()...');
-    try {
-      const initialPosts = await generateAllPosts();
-      initialPosts.forEach((p) => blogPosts.unshift(p));
-      console.log(
-        '✅ Generated initial 3 posts on launch =>',
-        initialPosts.map((x) => x.title).join(' | ')
-      );
-
-      // Then create daily overview referencing these 3 new posts
-      const overviewPost = await generateDailyOverviewPost(initialPosts);
-      blogPosts.unshift(overviewPost);
-
-      // Save to disk
-      saveBlogPosts();
-
-      // Tweet the daily overview
-      await postToX(overviewPost.body);
-    } catch (err) {
-      console.error('❌ Could not create initial posts on launch =>', err.message);
-    }
   });
 });
+
+
 
 
 

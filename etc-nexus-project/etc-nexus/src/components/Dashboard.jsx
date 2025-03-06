@@ -4,10 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { ethers } from 'ethers';
 import CommunityChat from './CommunityChat';
 import axios from 'axios';
-import Charts from './Charts'; 
+import Charts from './Charts';
 
 import ETCCommunityWatch from './ETCCommunityWatch';
-
 import PendingAlertsModal from './PendingAlertsModal';
 
 function Dashboard({ walletAddress, darkMode }) {
@@ -21,8 +20,7 @@ function Dashboard({ walletAddress, darkMode }) {
   const [hashrate, setHashrate] = useState('--');
   const [nodeCount, setNodeCount] = useState('--');
   const [networkStatus, setNetworkStatus] = useState('Loading...');
-  const [tvl, setTVL] = useState('--'); 
-  
+  const [tvl, setTVL] = useState('--');
   const [avgBlockTime, setAvgBlockTime] = useState(null);
 
   const ETC_RPC_URL = 'https://etc.rivet.link';
@@ -161,6 +159,7 @@ function Dashboard({ walletAddress, darkMode }) {
   const [openNodes, setOpenNodes] = useState(false);
   const [openLinks, setOpenLinks] = useState(false);
 
+  // NEW => openRpc for the ETC RPCs
   const [openRpc, setOpenRpc] = useState(false);
 
   // =========================
@@ -206,10 +205,13 @@ function Dashboard({ walletAddress, darkMode }) {
       return;
     }
     try {
-      const res = await axios.post('https://etc-chat-server-production.up.railway.app/api/setUsername', {
-        address: walletAddress,
-        username,
-      });
+      const res = await axios.post(
+        'https://etc-chat-server-production.up.railway.app/api/setUsername',
+        {
+          address: walletAddress,
+          username,
+        }
+      );
       if (res.data.success) {
         setUsernameFound(true);
         setFeedback(
@@ -288,20 +290,17 @@ function Dashboard({ walletAddress, darkMode }) {
     ? 'flex items-center px-4 py-2 text-gray-200 hover:bg-gray-700 transition-colors duration-200'
     : 'flex items-center px-4 py-2 text-gray-800 hover:bg-gray-200 transition-colors duration-200';
 
-  
+  // State for ETC Community Watch + Alerts
   const [showCommunityWatch, setShowCommunityWatch] = useState(false);
-
-  
   const [showPendingAlerts, setShowPendingAlerts] = useState(false);
 
   return (
     <div className={`${containerClass} w-full min-h-screen`}>
       <div className="container mx-auto px-4 py-6">
-
         {/* ===== ETC Stats Grid (5 columns on large screens) ===== */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
 
-          {/* TVL Card + Explore ETC Rpc's Button */}
+          {/* TVL Card + Explore ETC RPC's Button */}
           <div className="flex flex-col items-center">
             <div
               className={
@@ -317,6 +316,8 @@ function Dashboard({ walletAddress, darkMode }) {
                 {t('totalValueLocked')}
               </span>
             </div>
+
+            {/* Updated "Explore ETC RPC's" dropdown */}
             <div className="relative mt-2">
               <button
                 onClick={() => setOpenRpc(!openRpc)}
@@ -326,45 +327,44 @@ function Dashboard({ walletAddress, darkMode }) {
               </button>
               {openRpc && (
                 <div className={dropdownContainerClass}>
-                  <a
-                    href="https://etc.rivet.link"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={dropdownLinkClass}
-                  >
+                  {/* Rivet RPC */}
+                  <div className={dropdownLinkClass}>
                     <img
                       src="ETClogo.png"
                       alt="Rivet RPC"
                       className="w-10 h-10 mr-2"
                     />
-                    Rivet
-                  </a>
-                  <a
-                    href="https://www.ethercluster.com/etc"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={dropdownLinkClass}
-                  >
+                    <div>
+                      <p className="font-semibold">Rivet RPC</p>
+                      <p className="text-xs text-gray-400 break-all">https://etc.rivet.link</p>
+                    </div>
+                  </div>
+
+                  {/* ETCMC RPC */}
+                  <div className={dropdownLinkClass}>
                     <img
                       src="ETClogo.png"
-                      alt="Ethercluster RPC"
+                      alt="ETCMC RPC"
                       className="w-10 h-10 mr-2"
                     />
-                    Ethercluster
-                  </a>
-                  <a
-                    href="https://etc.etcraw.xyz"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={dropdownLinkClass}
-                  >
+                    <div>
+                      <p className="font-semibold">ETCMC RPC</p>
+                      <p className="text-xs text-gray-400 break-all">https://mainnet.etcmc.link</p>
+                    </div>
+                  </div>
+
+                  {/* HebeBlock RPC */}
+                  <div className={dropdownLinkClass}>
                     <img
                       src="ETClogo.png"
-                      alt="etcraw RPC"
+                      alt="HebeBlock RPC"
                       className="w-10 h-10 mr-2"
                     />
-                    etcraw
-                  </a>
+                    <div>
+                      <p className="font-semibold">HebeBlock RPC</p>
+                      <p className="text-xs text-gray-400 break-all">https://etc.etcdesktop.com</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -854,6 +854,7 @@ function Dashboard({ walletAddress, darkMode }) {
 }
 
 export default Dashboard;
+
 
 
 

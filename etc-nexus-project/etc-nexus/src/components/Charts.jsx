@@ -1,30 +1,24 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next'; // <-- NEW
-
-
+import { useTranslation } from 'react-i18next';
+import CandlestickChart from './CandlestickChart';
 
 function Charts() {
-  // 1) Initialize translation
   const { t } = useTranslation();
-
   const [chartsOpen, setChartsOpen] = useState(true);
 
   // ---------------- TRADINGVIEW SETUP ----------------
- 
-  const tvPairs = [
-    { label: 'ETC/USDT', value: 'BINANCEUS:ETCUSDT' },
-  ];
+  const tvPairs = [{ label: 'ETC/USDT', value: 'BINANCEUS:ETCUSDT' }];
   const [activeTab, setActiveTab] = useState('tradingview');
   const [tvSymbol, setTvSymbol] = useState(tvPairs[0].value);
   const [tvAnalysis, setTvAnalysis] = useState('');
   const [tvLoading, setTvLoading] = useState(false);
   const [tvError, setTvError] = useState('');
 
-  // TradingView iFrame URL
   const tradingViewURL = `https://www.tradingview.com/widgetembed/?frameElementId=etcChart&symbol=${encodeURIComponent(
     tvSymbol
   )}&interval=60&theme=dark&style=1&timezone=Etc%2FUTC&autosize=1`;
 
+  // TradingView analysis => calls /api/chartAnalysis (Binance-based)
   async function handleTvAnalysis() {
     try {
       setTvLoading(true);
@@ -53,25 +47,40 @@ function Charts() {
     }
   }
 
-  // ---------------- DEX PAIRS SETUP ----------------
+  // -------------------------------------------------------------------------
+  // Only USD pairs (WETC pairs removed)
+  // Format: "address:usd"
+  // -------------------------------------------------------------------------
   const dexPairs = [
-    { label: 'ETCPOW/WETC', address: '0x730f59a8690b50724914d7b9b2f49a8dd18f5572' },
-    { label: 'PEPE/WETC',   address: '0xcfe10aa566f8238d6509a7f3abbf9bdee2dde6da' },
-    { label: 'HEBE/ETC',    address: '0xc1f4df5ca7894c32689072de15c5267e46b6747b' },
-    { label: 'SHIBC/WETC',  address: '0xccd8dc89ee29d65802f36d75e458ca6f6b18493c' },
-    { label: 'TAD/WETC',    address: '0xb39f62a28d3a44b07ae4e08f5788cd5570e7a27b' },
+    { label: 'ETCPOW/USD', value: '0x730f59a8690b50724914d7b9b2f49a8dd18f5572:usd' },
+    { label: 'PEPE/USD',   value: '0xcfe10aa566f8238d6509a7f3abbf9bdee2dde6da:usd' },
+    { label: 'HEBE/USD',   value: '0xc1f4df5ca7894c32689072de15c5267e46b6747b:usd' },
+    { label: 'TAD/USD',    value: '0x1ee6fcb75930d55adbaa94c17fd0d1f4071c54f5:usd' },
   ];
-  const [selectedDexPair, setSelectedDexPair] = useState(dexPairs[0].address);
 
-  // Pair Info
+  // When a new pair is selected, clear previous pair info, analysis, and chart data
+  const [selectedDexPair, setSelectedDexPair] = useState(dexPairs[0].value);
+  const handleDexPairChange = (e) => {
+    const newVal = e.target.value;
+    setSelectedDexPair(newVal);
+    setPairInfo(null);
+    setDexAnalysis('');
+    setDexChartData(null);
+    setInfoError('');
+    setDexError('');
+    setDexChartError('');
+  };
+
+  // Helper: parse "0x1234...:usd" into { address, denom }
+  function parsePairSelection(val) {
+    const [address, denom] = val.split(':');
+    return { address, denom };
+  }
+
+  // ---------------- Pair Info (DexScreener) ----------------
   const [pairInfo, setPairInfo] = useState(null);
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoError, setInfoError] = useState('');
-
-  // Dex GPT Analysis
-  const [dexAnalysis, setDexAnalysis] = useState('');
-  const [dexLoading, setDexLoading] = useState(false);
-  const [dexError, setDexError] = useState('');
 
   async function handleGetPairInfo() {
     try {
@@ -79,8 +88,8 @@ function Charts() {
       setInfoError('');
       setPairInfo(null);
 
-      // Updated to use Railway domain
-      const url = `https://etc-nexus-server-production.up.railway.app/api/dexPair?pairAddress=${selectedDexPair}`;
+      const { address } = parsePairSelection(selectedDexPair);
+      const url = `https://etc-nexus-server-production.up.railway.app/api/dexPair?pairAddress=${address}`;
       const res = await fetch(url);
       if (!res.ok) {
         const data = await res.json();
@@ -96,18 +105,36 @@ function Charts() {
     }
   }
 
+  // ---------------- GPT Analysis (Dex) ----------------
+  const [dexAnalysis, setDexAnalysis] = useState('');
+  const [dexLoading, setDexLoading] = useState(false);
+  const [dexError, setDexError] = useState('');
+
   async function handleDexAnalysis() {
+    // Check if pair info is available – if not, instruct the user to press "Get Pair Info" first.
+    if (!pairInfo || !pairInfo.baseToken?.symbol) {
+      setDexError("Please press 'Get Pair Info' first to retrieve token details.");
+      return;
+    }
+
     try {
       setDexLoading(true);
       setDexError('');
       setDexAnalysis('');
+
+      const { address } = parsePairSelection(selectedDexPair);
+      // Use the token's symbol from pairInfo for GPT context.
+      const tokenName = pairInfo.baseToken.symbol;
 
       const res = await fetch(
         'https://etc-nexus-server-production.up.railway.app/api/dexAnalysis',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pairAddress: selectedDexPair }),
+          body: JSON.stringify({
+            pairAddress: address,
+            tokenName: tokenName,
+          }),
         }
       );
       if (!res.ok) {
@@ -124,14 +151,66 @@ function Charts() {
     }
   }
 
+  // ---------------- DEX Chart (USD) ----------------
+  const [dexChartData, setDexChartData] = useState(null);
+  const [dexChartLoading, setDexChartLoading] = useState(false);
+  const [dexChartError, setDexChartError] = useState('');
+
+  async function handleGetDexChartData() {
+    try {
+      setDexChartLoading(true);
+      setDexChartError('');
+      setDexChartData(null);
+
+      const { address, denom } = parsePairSelection(selectedDexPair);
+      const denomParam = denom === 'usd' ? '&denom=usd' : '';
+      const finalUrl = `https://etc-nexus-server-production.up.railway.app/api/dexChart?pairAddress=${address}${denomParam}`;
+      const res = await fetch(finalUrl);
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to fetch dex chart data.');
+      }
+      const rawCandles = await res.json();
+
+      console.log('rawCandles =>', rawCandles);
+
+      // Filter out incomplete candles
+      const validCandles = rawCandles.filter(
+        (c) =>
+          c.timestamp != null &&
+          c.open != null &&
+          c.high != null &&
+          c.low != null &&
+          c.close != null
+      );
+
+      // Convert to numeric data for the chart
+      const candleData = validCandles.map((c) => ({
+        time: Number(c.timestamp),
+        open: Number(c.open),
+        high: Number(c.high),
+        low: Number(c.low),
+        close: Number(c.close),
+      }));
+
+      // Sort in ascending order by time
+      candleData.sort((a, b) => a.time - b.time);
+
+      setDexChartData(candleData);
+    } catch (err) {
+      setDexChartError(err.message);
+      console.error('handleGetDexChartData =>', err);
+    } finally {
+      setDexChartLoading(false);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   return (
     <div className="mt-8 border border-emerald-500 p-4 rounded-xl shadow-xl bg-gray-800 bg-opacity-70">
-      {/* Title Row => includes hide/show toggle */}
+      {/* Title Row */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-bold text-emerald-300">
-          {t('ETC Charts')}
-        </h2>
+        <h2 className="text-lg font-bold text-emerald-300">{t('ETC Charts')}</h2>
         <button
           onClick={() => setChartsOpen(!chartsOpen)}
           className="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-white font-semibold transition-colors"
@@ -140,7 +219,6 @@ function Charts() {
         </button>
       </div>
 
-      {/* If chartsOpen => show the entire content */}
       {chartsOpen && (
         <>
           {/* Tab bar */}
@@ -163,7 +241,7 @@ function Charts() {
                   : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
               }`}
             >
-              {t('dex')}
+              {t('Dex Pairs')}
             </button>
           </div>
 
@@ -183,7 +261,6 @@ function Charts() {
                     </option>
                   ))}
                 </select>
-
                 <button
                   onClick={handleTvAnalysis}
                   className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-white font-semibold"
@@ -192,7 +269,6 @@ function Charts() {
                 </button>
               </div>
 
-              {/* TradingView iFrame */}
               <div className="w-full h-[500px] bg-gray-900 overflow-hidden">
                 <iframe
                   title="TradingViewChart"
@@ -204,7 +280,6 @@ function Charts() {
                 />
               </div>
 
-              {/* TV Error or Analysis */}
               {tvError && (
                 <p className="mt-4 text-red-400 font-semibold">{tvError}</p>
               )}
@@ -226,7 +301,7 @@ function Charts() {
             </>
           )}
 
-          {/* ---------------- DEX TAB (NO IFRAME) ---------------- */}
+          {/* ---------------- DEX TAB ---------------- */}
           {activeTab === 'dexscreener' && (
             <>
               <div className="flex flex-col space-y-3 mb-4">
@@ -235,10 +310,10 @@ function Charts() {
                   <select
                     className="bg-gray-700 text-white px-2 py-1 rounded"
                     value={selectedDexPair}
-                    onChange={(e) => setSelectedDexPair(e.target.value)}
+                    onChange={handleDexPairChange}
                   >
                     {dexPairs.map((dp) => (
-                      <option key={dp.address} value={dp.address}>
+                      <option key={dp.value} value={dp.value}>
                         {dp.label}
                       </option>
                     ))}
@@ -252,35 +327,36 @@ function Charts() {
                   >
                     {t('getPairInfo')}
                   </button>
-
                   <button
                     onClick={handleDexAnalysis}
                     className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-white font-semibold"
                   >
                     {t('getAnalysis')}
                   </button>
+                  <button
+                    onClick={handleGetDexChartData}
+                    className="bg-purple-600 hover:bg-purple-500 px-3 py-1 rounded text-white font-semibold"
+                  >
+                    Get Chart Data
+                  </button>
                 </div>
               </div>
 
-              {/* Pair Info Display */}
               {infoLoading && (
                 <p className="text-yellow-300">{t('loadingPairInfo')}</p>
               )}
               {infoError && <p className="text-red-400">{infoError}</p>}
-
               {pairInfo && !infoLoading && (
                 <div className="mt-4 bg-gray-700 p-3 rounded">
                   <h3 className="text-md font-bold text-emerald-300 mb-2">
                     {t('pairInfo')}
                   </h3>
                   <p className="text-sm text-white">
-                    {t('base')}{' '}
-                    {pairInfo.baseToken?.name} (
+                    {t('base')} {pairInfo.baseToken?.name} (
                     {pairInfo.baseToken?.symbol})
                   </p>
                   <p className="text-sm text-white">
-                    {t('quote')}{' '}
-                    {pairInfo.quoteToken?.name} (
+                    {t('quote')} {pairInfo.quoteToken?.name} (
                     {pairInfo.quoteToken?.symbol})
                   </p>
                   <p className="text-sm text-white">
@@ -298,22 +374,33 @@ function Charts() {
                 </div>
               )}
 
-              {/* Dex Analysis (GPT) */}
               {dexLoading && (
-                <p className="text-yellow-300 mt-4">
-                  {t('generatingDexAnalysis')}
-                </p>
+                <p className="text-yellow-300 mt-4">{t('generatingDexAnalysis')}</p>
               )}
               {dexError && <p className="text-red-400 mt-4">{dexError}</p>}
-
               {dexAnalysis && !dexLoading && (
                 <div className="mt-4 bg-gray-700 p-3 rounded">
                   <h3 className="text-md font-bold text-emerald-300 mb-2">
                     {t('dexGptAnalysis')}
                   </h3>
-                  <p className="text-sm text-white whitespace-pre-line">
-                    {dexAnalysis}
-                  </p>
+                  <p className="text-sm text-white whitespace-pre-line">{dexAnalysis}</p>
+                </div>
+              )}
+
+              {dexChartLoading && (
+                <p className="text-yellow-300 mt-4">Loading chart data...</p>
+              )}
+              {dexChartError && (
+                <p className="text-red-400 mt-4">{dexChartError}</p>
+              )}
+              {dexChartData && !dexChartLoading && (
+                <div className="mt-4 bg-gray-700 p-3 rounded">
+                  <h3 className="text-md font-bold text-emerald-300 mb-2">
+                    Pair Price Chart
+                  </h3>
+                  <div style={{ width: '100%', height: '400px' }}>
+                    <CandlestickChart data={dexChartData} />
+                  </div>
                 </div>
               )}
             </>
@@ -325,6 +412,15 @@ function Charts() {
 }
 
 export default Charts;
+
+
+
+
+
+
+
+
+
 
 
 
