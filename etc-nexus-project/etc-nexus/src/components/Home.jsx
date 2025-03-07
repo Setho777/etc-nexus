@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Blog from './Blog';
 import Dashboard from './Dashboard';
 
-function Home({ walletAddress, darkMode }) {
+function Home({ walletAddress, darkMode, signer }) {  // *** Pass signer here
   const [blogOpen, setBlogOpen] = useState(true);
 
   return (
@@ -27,13 +27,14 @@ function Home({ walletAddress, darkMode }) {
           blogOpen ? 'w-full md:w-3/4' : 'w-full md:w-11/12'
         }`}
       >
-        <Dashboard walletAddress={walletAddress} darkMode={darkMode} />
+        <Dashboard walletAddress={walletAddress} darkMode={darkMode} signer={signer} />
       </div>
     </div>
   );
 }
 
 export default Home;
+
 
 
 

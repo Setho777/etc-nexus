@@ -2,7 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { ethers, formatEther } from 'ethers';
 import { useTranslation } from 'react-i18next';
 
-function Header({ walletAddress, setWalletAddress, darkMode, setDarkMode }) {
+function Header({
+  walletAddress,
+  setWalletAddress,
+  darkMode,
+  setDarkMode,
+  // *** ADDED: Accept signer + setSigner props
+  signer,
+  setSigner
+}) {
   const { t, i18n } = useTranslation();
 
   const [etcBalance, setEtcBalance] = useState(null);
@@ -37,9 +45,12 @@ function Header({ walletAddress, setWalletAddress, darkMode, setDarkMode }) {
       }
 
       const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
+      const signerObj = await provider.getSigner(); // rename to signerObj
+      const address = await signerObj.getAddress();
       setWalletAddress(address);
+
+      // *** ADDED: store the signer in parent state
+      setSigner(signerObj);
 
       const balanceBigInt = await provider.getBalance(address);
       setEtcBalance(formatEther(balanceBigInt));
@@ -205,6 +216,7 @@ function Header({ walletAddress, setWalletAddress, darkMode, setDarkMode }) {
 }
 
 export default Header;
+
 
 
 

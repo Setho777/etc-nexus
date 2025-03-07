@@ -9,8 +9,7 @@ import Charts from './Charts';
 import ETCCommunityWatch from './ETCCommunityWatch';
 import PendingAlertsModal from './PendingAlertsModal';
 
-function Dashboard({ walletAddress, darkMode }) {
-  // 2) Destructure from useTranslation
+function Dashboard({ walletAddress, darkMode, signer }) {  
   const { t, i18n } = useTranslation();
 
   // =========================
@@ -158,7 +157,6 @@ function Dashboard({ walletAddress, darkMode }) {
   const [openProjects, setOpenProjects] = useState(false);
   const [openNodes, setOpenNodes] = useState(false);
   const [openLinks, setOpenLinks] = useState(false);
-
   // NEW => openRpc for the ETC RPCs
   const [openRpc, setOpenRpc] = useState(false);
 
@@ -299,7 +297,6 @@ function Dashboard({ walletAddress, darkMode }) {
       <div className="container mx-auto px-4 py-6">
         {/* ===== ETC Stats Grid (5 columns on large screens) ===== */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-
           {/* TVL Card + Explore ETC RPC's Button */}
           <div className="flex flex-col items-center">
             <div
@@ -316,7 +313,6 @@ function Dashboard({ walletAddress, darkMode }) {
                 {t('totalValueLocked')}
               </span>
             </div>
-
             {/* Updated "Explore ETC RPC's" dropdown */}
             <div className="relative mt-2">
               <button
@@ -339,7 +335,6 @@ function Dashboard({ walletAddress, darkMode }) {
                       <p className="text-xs text-gray-400 break-all">https://etc.rivet.link</p>
                     </div>
                   </div>
-
                   {/* ETCMC RPC */}
                   <div className={dropdownLinkClass}>
                     <img
@@ -352,7 +347,6 @@ function Dashboard({ walletAddress, darkMode }) {
                       <p className="text-xs text-gray-400 break-all">https://mainnet.etcmc.link</p>
                     </div>
                   </div>
-
                   {/* HebeBlock RPC */}
                   <div className={dropdownLinkClass}>
                     <img
@@ -369,7 +363,6 @@ function Dashboard({ walletAddress, darkMode }) {
               )}
             </div>
           </div>
-
           {/* ETC Price Card + Explore ETC Defi Dropdown */}
           <div className="flex flex-col items-center">
             <div
@@ -451,7 +444,6 @@ function Dashboard({ walletAddress, darkMode }) {
               )}
             </div>
           </div>
-
           {/* Hashrate Card + Explore ETC Projects Dropdown */}
           <div className="flex flex-col items-center">
             <div
@@ -548,7 +540,6 @@ function Dashboard({ walletAddress, darkMode }) {
               )}
             </div>
           </div>
-
           {/* Node Count Card + Explore ETC Nodes Dropdown */}
           <div className="flex flex-col items-center">
             <div
@@ -590,7 +581,6 @@ function Dashboard({ walletAddress, darkMode }) {
               )}
             </div>
           </div>
-
           {/* Network Status Card + Explore ETC Links Dropdown */}
           <div className="flex flex-col items-center">
             <div
@@ -666,8 +656,8 @@ function Dashboard({ walletAddress, darkMode }) {
           </div>
         </div>
 
-        {/* =============== Charts (above Community Chat) =============== */}
-        <Charts />
+        {/* =============== Render Charts and pass signer =============== */}
+        <Charts signer={signer} />
 
         {/* =============== Community Chat Section =============== */}
         <div className="mt-8 bg-gray-800 bg-opacity-70 p-4 rounded shadow relative">
@@ -675,7 +665,6 @@ function Dashboard({ walletAddress, darkMode }) {
             <h2 className="text-lg font-bold text-emerald-300">
               {t('communityChat')}
             </h2>
-            {/* Gear icon => toggle showSettings */}
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="text-gray-300 hover:text-gray-100 transition"
@@ -741,13 +730,11 @@ function Dashboard({ walletAddress, darkMode }) {
             {t('joinChat')}
           </button>
 
-          {/* Settings Panel => only if showSettings is true */}
           {showSettings && (
             <div className="bg-gray-700 bg-opacity-70 text-white mt-4 p-4 rounded shadow">
               <h3 className="text-md font-bold mb-2">
                 {t('profileSettings')}
               </h3>
-              {/* 1) Update Username */}
               <div className="mb-3">
                 <label className="font-semibold mr-2">
                   {t('username')}:
@@ -765,7 +752,6 @@ function Dashboard({ walletAddress, darkMode }) {
                   {t('save')}
                 </button>
               </div>
-              {/* 2) Update Profile Pic */}
               <form
                 onSubmit={handleProfilePicUpload}
                 className="flex flex-col space-y-2"
@@ -792,14 +778,12 @@ function Dashboard({ walletAddress, darkMode }) {
           )}
         </div>
 
-        {/* If user clicked "Join Chat", show <CommunityChat> below */}
         {chatOpen && (
           <div className="mt-6">
             <CommunityChat address={walletAddress} username={username} />
           </div>
         )}
 
-        {/* =========== TWO BUTTONS at the bottom row =========== */}
         <div className="mt-8 flex justify-between">
           <button
             onClick={() => setShowCommunityWatch(true)}
@@ -812,8 +796,6 @@ function Dashboard({ walletAddress, darkMode }) {
             />
             ETC Community Watch
           </button>
-
-          {/* Right => Pending Alerts w/ ALERT.png */}
           <button
             onClick={() => setShowPendingAlerts(true)}
             className="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-white font-semibold shadow-md flex items-center"
@@ -827,7 +809,6 @@ function Dashboard({ walletAddress, darkMode }) {
           </button>
         </div>
 
-        {/* =============== Render ETCCommunityWatch inline instead of a pop-up =============== */}
         {showCommunityWatch && (
           <div className="mt-6">
             <ETCCommunityWatch
@@ -838,7 +819,6 @@ function Dashboard({ walletAddress, darkMode }) {
           </div>
         )}
 
-        {/* =============== Render PendingAlertsModal inline as well =============== */}
         {showPendingAlerts && (
           <div className="mt-6">
             <PendingAlertsModal

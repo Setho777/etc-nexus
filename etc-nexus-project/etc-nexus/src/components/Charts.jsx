@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import CandlestickChart from './CandlestickChart';
+import Trade from './Trade'; // The new Trade component
 
-function Charts() {
+// *** ADDED: Accept signer as a prop
+function Charts({ signer }) {
   const { t } = useTranslation();
   const [chartsOpen, setChartsOpen] = useState(true);
 
@@ -18,7 +20,7 @@ function Charts() {
     tvSymbol
   )}&interval=60&theme=dark&style=1&timezone=Etc%2FUTC&autosize=1`;
 
-  // TradingView analysis => calls /api/chartAnalysis (Binance-based)
+  // TradingView analysis => calls /api/chartAnalysis
   async function handleTvAnalysis() {
     try {
       setTvLoading(true);
@@ -47,10 +49,7 @@ function Charts() {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Only USD pairs (WETC pairs removed)
-  // Format: "address:usd"
-  // -------------------------------------------------------------------------
+  // ---------------- DEX Setup (USD pairs) ----------------
   const dexPairs = [
     { label: 'ETCPOW/USD', value: '0x730f59a8690b50724914d7b9b2f49a8dd18f5572:usd' },
     { label: 'PEPE/USD',   value: '0xcfe10aa566f8238d6509a7f3abbf9bdee2dde6da:usd' },
@@ -58,9 +57,25 @@ function Charts() {
     { label: 'TAD/USD',    value: '0x1ee6fcb75930d55adbaa94c17fd0d1f4071c54f5:usd' },
   ];
 
-  // When a new pair is selected, clear previous pair info, analysis, and chart data
   const [selectedDexPair, setSelectedDexPair] = useState(dexPairs[0].value);
-  const handleDexPairChange = (e) => {
+  const [pairInfo, setPairInfo] = useState(null);
+  const [infoLoading, setInfoLoading] = useState(false);
+  const [infoError, setInfoError] = useState('');
+
+  const [dexAnalysis, setDexAnalysis] = useState('');
+  const [dexLoading, setDexLoading] = useState(false);
+  const [dexError, setDexError] = useState('');
+
+  const [dexChartData, setDexChartData] = useState(null);
+  const [dexChartLoading, setDexChartLoading] = useState(false);
+  const [dexChartError, setDexChartError] = useState('');
+
+  function parsePairSelection(val) {
+    const [address, denom] = val.split(':');
+    return { address, denom };
+  }
+
+  function handleDexPairChange(e) {
     const newVal = e.target.value;
     setSelectedDexPair(newVal);
     setPairInfo(null);
@@ -69,18 +84,7 @@ function Charts() {
     setInfoError('');
     setDexError('');
     setDexChartError('');
-  };
-
-  // Helper: parse "0x1234...:usd" into { address, denom }
-  function parsePairSelection(val) {
-    const [address, denom] = val.split(':');
-    return { address, denom };
   }
-
-  // ---------------- Pair Info (DexScreener) ----------------
-  const [pairInfo, setPairInfo] = useState(null);
-  const [infoLoading, setInfoLoading] = useState(false);
-  const [infoError, setInfoError] = useState('');
 
   async function handleGetPairInfo() {
     try {
@@ -105,13 +109,7 @@ function Charts() {
     }
   }
 
-  // ---------------- GPT Analysis (Dex) ----------------
-  const [dexAnalysis, setDexAnalysis] = useState('');
-  const [dexLoading, setDexLoading] = useState(false);
-  const [dexError, setDexError] = useState('');
-
   async function handleDexAnalysis() {
-    // Check if pair info is available – if not, instruct the user to press "Get Pair Info" first.
     if (!pairInfo || !pairInfo.baseToken?.symbol) {
       setDexError("Please press 'Get Pair Info' first to retrieve token details.");
       return;
@@ -123,7 +121,6 @@ function Charts() {
       setDexAnalysis('');
 
       const { address } = parsePairSelection(selectedDexPair);
-      // Use the token's symbol from pairInfo for GPT context.
       const tokenName = pairInfo.baseToken.symbol;
 
       const res = await fetch(
@@ -131,10 +128,7 @@ function Charts() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pairAddress: address,
-            tokenName: tokenName,
-          }),
+          body: JSON.stringify({ pairAddress: address, tokenName }),
         }
       );
       if (!res.ok) {
@@ -150,11 +144,6 @@ function Charts() {
       setDexLoading(false);
     }
   }
-
-  // ---------------- DEX Chart (USD) ----------------
-  const [dexChartData, setDexChartData] = useState(null);
-  const [dexChartLoading, setDexChartLoading] = useState(false);
-  const [dexChartError, setDexChartError] = useState('');
 
   async function handleGetDexChartData() {
     try {
@@ -172,9 +161,6 @@ function Charts() {
       }
       const rawCandles = await res.json();
 
-      console.log('rawCandles =>', rawCandles);
-
-      // Filter out incomplete candles
       const validCandles = rawCandles.filter(
         (c) =>
           c.timestamp != null &&
@@ -184,7 +170,6 @@ function Charts() {
           c.close != null
       );
 
-      // Convert to numeric data for the chart
       const candleData = validCandles.map((c) => ({
         time: Number(c.timestamp),
         open: Number(c.open),
@@ -193,19 +178,25 @@ function Charts() {
         close: Number(c.close),
       }));
 
-      // Sort in ascending order by time
       candleData.sort((a, b) => a.time - b.time);
-
       setDexChartData(candleData);
     } catch (err) {
-      setDexChartError(err.message);
       console.error('handleGetDexChartData =>', err);
+      setDexChartError(err.message);
     } finally {
       setDexChartLoading(false);
     }
   }
 
-  // ---------------------------------------------------------------------------
+  // Trade dropdown logic
+  const [selectedTradeDex, setSelectedTradeDex] = useState('hebeswap');
+  const [showTrade, setShowTrade] = useState(false);
+
+  // Only 1 option now, but more soon
+  const dexOptions = [
+    { label: 'ETCMC (More DEXes Coming Soon)', value: 'etcmc' }
+  ];
+
   return (
     <div className="mt-8 border border-emerald-500 p-4 rounded-xl shadow-xl bg-gray-800 bg-opacity-70">
       {/* Title Row */}
@@ -221,31 +212,58 @@ function Charts() {
 
       {chartsOpen && (
         <>
-          {/* Tab bar */}
-          <div className="flex space-x-2 mb-4">
+          {/* Buttons/Dropdown Row */}
+          {/* We make the container responsive by allowing wrap */}
+          <div className="flex flex-wrap items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
+            {/* TradingView tab button */}
             <button
               onClick={() => setActiveTab('tradingview')}
-              className={`px-3 py-1 rounded font-semibold transition-colors ${
-                activeTab === 'tradingview'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
-              }`}
+              className="px-3 py-1 rounded font-semibold transition-colors bg-emerald-600 text-white hover:bg-emerald-500"
             >
               {t('tradingView')}
             </button>
+
+            {/* Dex Pairs tab button */}
             <button
               onClick={() => setActiveTab('dexscreener')}
-              className={`px-3 py-1 rounded font-semibold transition-colors ${
-                activeTab === 'dexscreener'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
-              }`}
+              className="px-3 py-1 rounded font-semibold transition-colors bg-emerald-600 text-white hover:bg-emerald-500"
             >
               {t('Dex Pairs')}
             </button>
+
+            {/* DEX selection dropdown => same style as the "Select Pair" dropdown */}
+            <select
+              className="bg-gray-700 text-white px-2 py-1 rounded"
+              value={selectedTradeDex}
+              onChange={(e) => setSelectedTradeDex(e.target.value)}
+            >
+              {dexOptions.map((dex) => (
+                <option key={dex.value} value={dex.value}>
+                  {dex.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Trade button => green */}
+            <button
+              onClick={() => setShowTrade(true)}
+              className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-white font-semibold"
+            >
+              {t('Trade')}
+            </button>
           </div>
 
-          {/* ---------------- TRADINGVIEW TAB ---------------- */}
+          {/* If user clicked “Trade”, render the Trade component */}
+          {showTrade && (
+            <Trade
+              // *** ADDED: Pass the signer to Trade
+              signer={signer}
+              selectedDex={selectedTradeDex}
+              onClose={() => setShowTrade(false)}
+            />
+          )}
+
+          {/* --------- TRADINGVIEW TAB --------- */}
           {activeTab === 'tradingview' && (
             <>
               <div className="flex flex-wrap items-center space-x-3 mb-4">
@@ -301,7 +319,7 @@ function Charts() {
             </>
           )}
 
-          {/* ---------------- DEX TAB ---------------- */}
+          {/* --------- DEX TAB --------- */}
           {activeTab === 'dexscreener' && (
             <>
               <div className="flex flex-col space-y-3 mb-4">
@@ -323,7 +341,7 @@ function Charts() {
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={handleGetPairInfo}
-                    className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-white font-semibold"
+                    className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-white font-semibold"
                   >
                     {t('getPairInfo')}
                   </button>
@@ -335,7 +353,7 @@ function Charts() {
                   </button>
                   <button
                     onClick={handleGetDexChartData}
-                    className="bg-purple-600 hover:bg-purple-500 px-3 py-1 rounded text-white font-semibold"
+                    className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-white font-semibold"
                   >
                     Get Chart Data
                   </button>
@@ -383,7 +401,9 @@ function Charts() {
                   <h3 className="text-md font-bold text-emerald-300 mb-2">
                     {t('dexGptAnalysis')}
                   </h3>
-                  <p className="text-sm text-white whitespace-pre-line">{dexAnalysis}</p>
+                  <p className="text-sm text-white whitespace-pre-line">
+                    {dexAnalysis}
+                  </p>
                 </div>
               )}
 
@@ -412,6 +432,9 @@ function Charts() {
 }
 
 export default Charts;
+
+
+
 
 
 
