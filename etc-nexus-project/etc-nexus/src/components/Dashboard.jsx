@@ -157,7 +157,7 @@ function Dashboard({ walletAddress, darkMode, signer }) {
   const [openProjects, setOpenProjects] = useState(false);
   const [openNodes, setOpenNodes] = useState(false);
   const [openLinks, setOpenLinks] = useState(false);
-  // NEW => openRpc for the ETC RPCs
+  // NEW => openRpc for the ETC RPC's
   const [openRpc, setOpenRpc] = useState(false);
 
   // =========================
@@ -292,6 +292,9 @@ function Dashboard({ walletAddress, darkMode, signer }) {
   const [showCommunityWatch, setShowCommunityWatch] = useState(false);
   const [showPendingAlerts, setShowPendingAlerts] = useState(false);
 
+  // ============== NEW: Popup for ETC node options ==============
+  const [showETCMCNodesPopup, setShowETCMCNodesPopup] = useState(false);
+
   return (
     <div className={`${containerClass} w-full min-h-screen`}>
       <div className="container mx-auto px-4 py-6">
@@ -332,7 +335,9 @@ function Dashboard({ walletAddress, darkMode, signer }) {
                     />
                     <div>
                       <p className="font-semibold">Rivet RPC</p>
-                      <p className="text-xs text-gray-400 break-all">https://etc.rivet.link</p>
+                      <p className="text-xs text-gray-400 break-all">
+                        https://etc.rivet.link
+                      </p>
                     </div>
                   </div>
                   {/* ETCMC RPC */}
@@ -344,7 +349,9 @@ function Dashboard({ walletAddress, darkMode, signer }) {
                     />
                     <div>
                       <p className="font-semibold">ETCMC RPC</p>
-                      <p className="text-xs text-gray-400 break-all">https://mainnet.etcmc.link</p>
+                      <p className="text-xs text-gray-400 break-all">
+                        https://mainnet.etcmc.link
+                      </p>
                     </div>
                   </div>
                   {/* HebeBlock RPC */}
@@ -356,13 +363,16 @@ function Dashboard({ walletAddress, darkMode, signer }) {
                     />
                     <div>
                       <p className="font-semibold">HebeBlock RPC</p>
-                      <p className="text-xs text-gray-400 break-all">https://etc.etcdesktop.com</p>
+                      <p className="text-xs text-gray-400 break-all">
+                        https://etc.etcdesktop.com
+                      </p>
                     </div>
                   </div>
                 </div>
               )}
             </div>
           </div>
+
           {/* ETC Price Card + Explore ETC Defi Dropdown */}
           <div className="flex flex-col items-center">
             <div
@@ -444,6 +454,7 @@ function Dashboard({ walletAddress, darkMode, signer }) {
               )}
             </div>
           </div>
+
           {/* Hashrate Card + Explore ETC Projects Dropdown */}
           <div className="flex flex-col items-center">
             <div
@@ -540,6 +551,7 @@ function Dashboard({ walletAddress, darkMode, signer }) {
               )}
             </div>
           </div>
+
           {/* Node Count Card + Explore ETC Nodes Dropdown */}
           <div className="flex flex-col items-center">
             <div
@@ -564,23 +576,22 @@ function Dashboard({ walletAddress, darkMode, signer }) {
                 {t('nodes')}
               </button>
               {openNodes && (
-                <div className={dropdownContainerClass.replace('w-56', 'w-48')}>
+                <div className={dropdownContainerClass.replace('w-56', 'w-48')}>           
                   <a
                     href="#"
-                    className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowETCMCNodesPopup(true);
+                    }}
+                    className={dropdownLinkClass}
                   >
-                    {t('placeholder')} 1
-                  </a>
-                  <a
-                    href="#"
-                    className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200"
-                  >
-                    {t('placeholder')} 2
+                    ETC Node Manager & ETCMC Software
                   </a>
                 </div>
               )}
             </div>
           </div>
+
           {/* Network Status Card + Explore ETC Links Dropdown */}
           <div className="flex flex-col items-center">
             <div
@@ -829,11 +840,79 @@ function Dashboard({ walletAddress, darkMode, signer }) {
           </div>
         )}
       </div>
+
+      {/* NEW => Popup modal for "ETC Node Manager & ETCMC Software" */}
+      {showETCMCNodesPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-gray-800 border border-emerald-500 p-4 rounded w-80 text-white">
+            <h2 className="text-lg font-bold mb-4">ETC Node Manager & ETCMC Node Software</h2>
+
+            {/* ETC Node Manager Section */}
+            <div className="mb-4">
+              <h3 className="font-semibold mb-1">ETC Node Manager</h3>
+              <p className="text-sm mb-2">
+                A user-friendly manager for running up to six ETC nodes (mainnet or Mordor).
+                No license required, great for testing or local ETC environments.
+              </p>
+              <p className="mb-1">
+                Download (Windows):
+                <a
+                  href="https://github.com/Setho777/ETCNodeManager/releases/download/Latest/ETC.Node.Manager-Setup-1.0.0.exe"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 underline ml-1"
+                >
+                  .exe
+                </a>
+              </p>
+              <p className="mb-2">
+                Download (Linux):
+                <a
+                  href="https://github.com/Setho777/ETCNodeManager/releases/download/Latest/ETC.Node.Manager-1.0.0.AppImage"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 underline ml-1"
+                >
+                  .AppImage
+                </a>
+              </p>
+            </div>
+
+            {/* ETCMC Node Software Section */}
+            <div className="mb-3">
+              <h3 className="font-semibold mb-1">ETCMC Node Software</h3>
+              <p className="text-sm mb-2">
+                Earn rewards but requires a paid license. 
+                For more info or to purchase a license:
+              </p>
+              <a
+                href="https://etcmc.org/faq#software"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400 underline"
+              >
+                etcmc.org/faq#software
+              </a>
+            </div>
+
+            <button
+              onClick={() => setShowETCMCNodesPopup(false)}
+              className="bg-red-500 hover:bg-red-400 px-3 py-1 rounded mt-2"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default Dashboard;
+
+
+
+
 
 
 
